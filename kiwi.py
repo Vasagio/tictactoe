@@ -2,14 +2,15 @@ import kivy
 kivy.require('1.9.0')
 
 from kivy.app import App
-from kivy.uix.button import Label
+from kivy.uix.gridlayout import GridLayout
 
-class HelloKivy(App):
+# The Grid Layout organizes everything in a grid pattern
+
+class TicTacToeApp(App):
+
     def build(self):
-        return Label(text="Hello Kivy")
+        return GridLayout()
 
+app= TicTacToeApp()
 
-
-helloKivy = HelloKivy()
-
-helloKivy.run()
+app.run()
