@@ -1,29 +1,41 @@
-# Define the number of columns and rows
-# Define the spacing between children in pixels
-
 <GridLayout>:
     cols: 3
     rows: 3
     spacing: 10
-
-    # Set the size by passing None to size_hint_x
-    # and then pass the width
+    padding: 10
 
     Button:
+        id: button1
+        on_release: root.choice('0,0')
 
     Button:
+        id: button2
+        on_release: root.choice('0,1')
 
     Button:
+        id: button3
+        on_release: root.choice('0,2')
 
     Button:
+        id: button4
+        on_release: root.choice('1,0')
 
     Button:
+        id: button5
+        on_release: root.choice('1,1')
 
     Button:
+        id: button6
+        on_release: root.choice('1,2')
 
     Button:
+        id: button7
+        on_release: root.choice('2,0')
 
     Button:
+        id: button8
+        on_release: root.choice('2,1')
 
     Button:
-        
+        id: button9
+        on_release: root.choice('2,2')
