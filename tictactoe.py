@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import threading
 import time
+from kivy.clock import Clock
 
 from kivy.app import App
 from kivy.uix.gridlayout import GridLayout
@@ -86,6 +87,8 @@ class AI:
 
      # Następny ruch (next_move)
     tictactoe.board[next_move[0], next_move[1]] = self.sym
+
+    #gridlayout.update_gridboard()
 
     #Aktualizujemy tablicę stanów
   def update_state_history(self, s):
@@ -354,8 +357,7 @@ class GridLayout(GridLayout):
     i = None
     j = None
 
-    def get_board(self, tictactoe):
-        print(tictactoe.board)
+
 
     def choice(self, choice):
 
@@ -370,7 +372,7 @@ class GridLayout(GridLayout):
         self.update_gridboard()
 
     def update_gridboard(self):
-        print (app.gridboard)
+        threading.Timer(3.0, self.update_gridboard).start()
 
         i=0
         j=0
@@ -392,29 +394,35 @@ class GridLayout(GridLayout):
                         the_reference = self.ids['button' + x + y]
                         the_reference.text = " "
 
-
-
 class TicTacToeApp(App):
 
      gridboard = np.zeros((3,3))
 
      def build(self):
-        return GridLayout()
+        global root
+        gridlayout = GridLayout()
+        return gridlayout
 
 if __name__ == '__main__': #funkcja main
   print("Loading...")
    #Konsola wyświetla informacje o ładowaniu podczas gdy zaraz dwie sztuczne inteligencje
    # będą grały ze sobą, co może chwilę potrwać jeśli ustawimy dużą ilość gier
 
-  # Dwóch graczy (sztuczne inteligencje) grają między sobą i uczą się (inicjujemy dwóch graczy AI)
 
 
+  app = TicTacToeApp()
+
+  def newThread():
+    app.run()
+
+  thread = threading.Thread(target=newThread, args=())
+  thread.start()
+
+   # Dwóch graczy (sztuczne inteligencje) grają między sobą i uczą się (inicjujemy dwóch graczy AI)
   player1 = AI()
   player2 = AI()
 
   human = Human()
-
-  app = TicTacToeApp()
 
 
     #inicjujemy środowisko w którym będziemy grać
@@ -429,16 +437,12 @@ if __name__ == '__main__': #funkcja main
   Vo = initialV_o(tictactoe, state_winner_triples)
   player2.setV(Vo)
 
-  # give each player their symbol
   player1.set_symbol(tictactoe.x)
   player2.set_symbol(tictactoe.o)
-  human.set_symbol(tictactoe.o)
-
-  def newThread():
-    app.run()
+  human.set_symbol(tictactoe.x)
 
 
-  number_of_training_games = 1000 #liczba gier treningowych w których dwie sztuczne inteligencje grają ze sobą
+  number_of_training_games = 5000 #liczba gier treningowych w których dwie sztuczne inteligencje grają ze sobą
   # można by to zainicjować z konsoli jako input, ale my już to ustawiliśmy "z palca"
   for n in range(number_of_training_games):
     play_game(player1, player2, TicTacToe())
@@ -446,12 +450,10 @@ if __name__ == '__main__': #funkcja main
     #gdy się już nasz AI wyszkolił, gramy Człowiek kontra Sztuczna inteligencja ;)
 
 
-  thread = threading.Thread(target=newThread, args=())
-  thread.start()
 
   while True:
     player1.set_state_information(True)
-    play_game(player1, human, TicTacToe(), draw=2)
+    play_game(human, player2, TicTacToe(), draw=2)
     answer = input("Czy chcesz zagrać ponownie? [Y/n]: ")
     if answer and answer.lower()[0] == 'n':
       break
