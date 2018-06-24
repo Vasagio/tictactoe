@@ -3,7 +3,7 @@ from builtins import range, input
 import numpy as np
 import matplotlib.pyplot as plt
 import threading
-
+import time
 
 from kivy.app import App
 from kivy.uix.gridlayout import GridLayout
@@ -30,7 +30,7 @@ class AI:
   def reset_history(self):
     self.state_history = []
 
-  def take_action(self, env):
+  def take_action(self, tictactoe):
     # #Zagraj kolejny ruch, losowy, albo najlepszy możliwy
      #Losowy ruch, aby nie wpaść w maksimum lokalne, sztuczna inteligencja czasami robi losowy ruch aby odkryć kolejne pola
     random = np.random.rand()
@@ -41,7 +41,7 @@ class AI:
       possible_moves = []
       for i in range(3):
         for j in range(3):
-          if env.is_empty(i, j):
+          if tictactoe.is_empty(i, j):
             possible_moves.append((i, j))
       idx = np.random.choice(len(possible_moves))
       next_move = possible_moves[idx]
@@ -53,11 +53,11 @@ class AI:
       best_value = -1 #najlepsza możliwa wartość ("śledzimy ją" w pętli)
       for i in range(3):
         for j in range(3):
-          if env.is_empty(i, j):
+          if tictactoe.is_empty(i, j):
 
-            env.board[i,j] = self.sym
-            state = env.get_state()
-            env.board[i,j] = 0 #
+            tictactoe.board[i,j] = self.sym
+            state = tictactoe.get_state()
+            tictactoe.board[i,j] = 0 #
             pos2value[(i,j)] = self.V[state]
             if self.V[state] > best_value:
               best_value = self.V[state]
@@ -70,14 +70,14 @@ class AI:
         for i in range(3):
           print("------------------")
           for j in range(3):
-            if env.is_empty(i, j):
+            if tictactoe.is_empty(i, j):
               # print the value
               print(" %.2f|" % pos2value[(i,j)], end="")
             else:
               print("  ", end="")
-              if env.board[i,j] == env.x:
+              if tictactoe.board[i,j] == tictactoe.x:
                 print("X  |", end="")
-              elif env.board[i,j] == env.o:
+              elif tictactoe.board[i,j] == tictactoe.o:
                 print("O  |", end="")
               else:
                 print("   |", end="")
@@ -85,15 +85,15 @@ class AI:
         print("------------------")
 
      # Następny ruch (next_move)
-    env.board[next_move[0], next_move[1]] = self.sym
+    tictactoe.board[next_move[0], next_move[1]] = self.sym
 
     #Aktualizujemy tablicę stanów
   def update_state_history(self, s):
     self.state_history.append(s)
 
-  def update(self, env):
+  def update(self, tictactoe):
         # V(prev_state) = V(prev_state) + alpha*(V(next_state) - V(prev_state)) - Bellman Equation
-    reward = env.reward(self.sym) #nagroda (reward)
+    reward = tictactoe.reward(self.sym) #nagroda (reward)
     target = reward
     for prev in reversed(self.state_history):
       value = self.V[prev] + self.alpha*(target - self.V[prev]) #Bellman Equation
@@ -103,29 +103,144 @@ class AI:
 
 
 #Środowisko gry (rysowanie tablicy, sprawdzanie zwycięzcy, stanów, kółko i krzyżyk)
+class TicTacToe:
+  def __init__(self): #Konstruktor
+    self.board = np.zeros((3, 3)) #uzupełnienie dwuwymiarowej tablicy 3 na 3 zerami (czyli pusta tablica, 0 = puste)
+    self.x = -1 # Wartość -1 dla X
+    self.o = 1 # Wartość 1 dla O
+    self.winner = None #Na początku nie ma zwycięzcy
+    self.ended = False #Na początku gra nie jest skończona, czyli false
+    self.num_states = 3**(3*3) #9 pól na tablicy (3*3) i 3 stany dla każdego pola (Kółko, krzyżyk, puste(0)), 3^9
+
+  def is_empty(self, i, j): #Czy pole jest puste)
+    return self.board[i,j] == 0
+
+  def reward(self, sym): #Nagroda (reward) przyznawana dopiero po skończonej grze
+    if not self.game_over():
+      return 0
+
+    return 1 if self.winner == sym else 0 #Jeśli X wygrał, przyznajemy mu nagrodę 1
+
+    #odwzorowanie stanu dla konkretnego pola
+    #trzy możliwe stany: puste(0), X (1) i O(2) dla każdego pola
+    #każde z 9 pól możemy ustawić na 3 sposoby, stąd 3^9, tak jak w rachunku prawdopodobieństwa
+  def get_state(self):
+    # Zwraca aktualny stan
+    k = 0  #aktualna lokalizacja, numer pola na planszy
+    h = 0  #hash, wartość danego pola, 3 do potęgi k(numer pola), pomnożona przez wartość stanu V (kółko, krzyżyk, puste)
+    for i in range(3):
+      for j in range(3):
+        if self.board[i,j] == 0:
+          v = 0
+        elif self.board[i,j] == self.x:
+          v = 1
+        elif self.board[i,j] == self.o:
+          v = 2
+        h += (3**k) * v
+        k += 1
+    return h
+
+  def game_over(self, force_recalculate=False): #sprawdzamy czy gra się zakończyła, force_recalculate jeśli gra się zakończyła, nie chcemy znowu sprawdzać
+    human.set_i_j(None, None)
+    if not force_recalculate and self.ended:
+      return self.ended
+
+
+      #Sprawdzamy czy ktoś wygrał (w kolumnach, wierszach i po skos)
+
+      #Sprawdzamy wiersze
+    for i in range(3):
+      for player in (self.x, self.o):
+        if self.board[i].sum() == player*3:
+          self.winner = player #Ustawiamy który gracz ewentualnie wygrał
+          self.ended = True #Ustawiamy skończoną gre na true
+          return True #True kiedy gra jest skończona (ktoś wygrał, albo jest remis)
+
+
+    #Sprawdzamy w kolumnach
+    for j in range(3):
+      for player in (self.x, self.o):
+        if self.board[:,j].sum() == player*3:
+          self.winner = player
+          self.ended = True
+          return True
+
+    # Sprawdzamy na skos
+    for player in (self.x, self.o):
+      # Lewy górny - prawy dolny
+      if self.board.trace() == player*3:
+        self.winner = player
+        self.ended = True
+        return True
+      # Odwracamy tablicę i sprawdzamy prawy-górny - lewy-dolny
+      if np.fliplr(self.board).trace() == player*3:
+        self.winner = player
+        self.ended = True
+        return True
+
+    # Sprawdź czy jest remis (wszystkie pola zapełnione, nikt nie wygrał)
+    if np.all((self.board == 0) == False):
+      self.winner = None  #Nie ma zwycięzcy (remis)
+      self.ended = True #Ale gra się skończyła (ended = True)
+      return True
+
+    # Gra się jeszcze nie skończyła
+    self.winner = None
+    return False
+
+    #Ustawiamy wartości dla remisu
+  def is_draw(self):
+    return self.ended and self.winner is None
+
+
+    #Rysujemy tablice w konsoli
+  def draw_board(self):
+    for i in range(3):
+      print("-------------")
+      for j in range(3):
+        print("  ", end="")
+        if self.board[i,j] == self.x:
+          print("X ", end="")
+        elif self.board[i,j] == self.o:
+          print("O ", end="")
+        else:
+          print("  ", end="")
+      print("")
+    print("-------------")
+
 
 #Człowiek
 class Human:
+  isClicked = True
   def __init__(self): #Konstruktor
-    pass
+    self.i=None
+    self.j=None
+
+  def set_i_j(self, i, j):
+      self.i = i
+      self.j = j
+
 
   def set_symbol(self, sym): #Symbol dla gracza-człowieka (O lub X)
     self.sym = sym
 
-
   def take_action(self, tictactoe): #Wykonanie ruchu
     while True:
         #pętla się wykonuje dopóki nie wykonamy poprawnego ruchu
-     # move = input("Podaj współrzędne x, y dla kolejnego ruchu (z przedziału 0-2, np 1,1): ") #Pobieramy współrzędne od gracza w konsoli
-     #i, j = move.split(',') #Dzielimy Stringi na dwie wartości (dwie współrzędne)
+      #move = input("Podaj współrzędne x, y dla kolejnego ruchu (z przedziału 0-2, np 1,1): ") #Pobieramy współrzędne od gracza w konsoli
+      #i, j = move.split(',') #Dzielimy Stringi na dwie wartości (dwie współrzędne)
       #castujemy nasze stringi na inty, żeby "włożyć" je do tablicy
-      #i = gridLayout.i
-      #j = gridlayout.j
-      if tictactoe.is_empty(i, j):
-        tictactoe.board[i,j] = self.sym
-        break
-        #break jeśli zrobiliśmy poprawny ruch
-
+      #i = int(i)
+      #j = int(j)
+      self.isClicked = True
+      if (self.isClicked):
+          i=self.i
+          j=self.j
+      if (i != None and j != None):
+          if tictactoe.is_empty(i, j):
+            tictactoe.board[i, j] = self.sym
+            #break jeśli zrobiliśmy poprawny ruch
+            break
 
   def update(self, tictactoe):
     pass
@@ -232,131 +347,24 @@ def play_game(player1, player2, tictactoe, draw=False):
   player1.update(tictactoe)
   player2.update(tictactoe)
 
-
-
 class GridLayout(GridLayout):
-    i = 0
-    j = 0
+    i = None
+    j = None
 
 
     def choice(self, choice):
 
         i, j = choice.split(',')
-        self.i = int (i)
-        self.j = int (j)
 
-        print (self.i, self.j)
+        i = int (i)
+        j = int (j)
 
+        human.set_i_j(i, j)
 
-
-
+        human.isClicked = False
 
 
 class TicTacToeApp(App):
-
-     board = np.zeros((3, 3)) #uzupełnienie dwuwymiarowej tablicy 3 na 3 zerami (czyli pusta tablica, 0 = puste)
-     x = -1 # Wartość -1 dla X
-     o = 1 # Wartość 1 dla O
-     winner = None #Na początku nie ma zwycięzcy
-     ended = False #Na początku gra nie jest skończona, czyli false
-     num_states = 3**(3*3) #9 pól na tablicy (3*3) i 3 stany dla każdego pola (Kółko, krzyżyk, puste(0)), 3^9
-
-     def is_empty(self, i, j): #Czy pole jest puste)
-       return self.board[i,j] == 0
-
-     def reward(self, sym): #Nagroda (reward) przyznawana dopiero po skończonej grze
-       if not self.game_over():
-         return 0
-
-       return 1 if self.winner == sym else 0 #Jeśli X wygrał, przyznajemy mu nagrodę 1
-
-       #odwzorowanie stanu dla konkretnego pola
-       #trzy możliwe stany: puste(0), X (1) i O(2) dla każdego pola
-       #każde z 9 pól możemy ustawić na 3 sposoby, stąd 3^9, tak jak w rachunku prawdopodobieństwa
-     def get_state(self):
-       # Zwraca aktualny stan
-       k = 0  #aktualna lokalizacja, numer pola na planszy
-       h = 0  #hash, wartość danego pola, 3 do potęgi k(numer pola), pomnożona przez wartość stanu V (kółko, krzyżyk, puste)
-       for i in range(3):
-         for j in range(3):
-           if self.board[i,j] == 0:
-             v = 0
-           elif self.board[i,j] == self.x:
-             v = 1
-           elif self.board[i,j] == self.o:
-             v = 2
-           h += (3**k) * v
-           k += 1
-       return h
-
-     def game_over(self, force_recalculate=False): #sprawdzamy czy gra się zakończyła, force_recalculate jeśli gra się zakończyła, nie chcemy znowu sprawdzać
-       if not force_recalculate and self.ended:
-         return self.ended
-
-
-         #Sprawdzamy czy ktoś wygrał (w kolumnach, wierszach i po skos)
-
-         #Sprawdzamy wiersze
-       for i in range(3):
-         for player in (self.x, self.o):
-           if self.board[i].sum() == player*3:
-             self.winner = player #Ustawiamy który gracz ewentualnie wygrał
-             self.ended = True #Ustawiamy skończoną gre na true
-             return True #True kiedy gra jest skończona (ktoś wygrał, albo jest remis)
-
-
-       #Sprawdzamy w kolumnach
-       for j in range(3):
-         for player in (self.x, self.o):
-           if self.board[:,j].sum() == player*3:
-             self.winner = player
-             self.ended = True
-             return True
-
-       # Sprawdzamy na skos
-       for player in (self.x, self.o):
-         # Lewy górny - prawy dolny
-         if self.board.trace() == player*3:
-           self.winner = player
-           self.ended = True
-           return True
-         # Odwracamy tablicę i sprawdzamy prawy-górny - lewy-dolny
-         if np.fliplr(self.board).trace() == player*3:
-           self.winner = player
-           self.ended = True
-           return True
-
-       # Sprawdź czy jest remis (wszystkie pola zapełnione, nikt nie wygrał)
-       if np.all((self.board == 0) == False):
-         self.winner = None  #Nie ma zwycięzcy (remis)
-         self.ended = True #Ale gra się skończyła (ended = True)
-         return True
-
-       # Gra się jeszcze nie skończyła
-       self.winner = None
-       return False
-
-       #Ustawiamy wartości dla remisu
-     def is_draw(self):
-       return self.ended and self.winner is None
-
-
-       #Rysujemy tablice w konsoli
-
-     def draw_board(self):
-       for i in range(3):
-         print("-------------")
-         for j in range(3):
-           print("  ", end="")
-           if self.board[i,j] == self.x:
-             print("X ", end="")
-           elif self.board[i,j] == self.o:
-             print("O ", end="")
-           else:
-             print("  ", end="")
-         print("")
-       print("-------------")
-
 
      def build(self):
         return GridLayout()
@@ -364,18 +372,19 @@ class TicTacToeApp(App):
 if __name__ == '__main__': #funkcja main
 
   print("Loading...")
-   #Konsola wyświetla infor()macje o ładowaniu podczas gdy zaraz dwie sztuczne inteligencje
+   #Konsola wyświetla informacje o ładowaniu podczas gdy zaraz dwie sztuczne inteligencje
    # będą grały ze sobą, co może chwilę potrwać jeśli ustawimy dużą ilość gier
-
 
   # Dwóch graczy (sztuczne inteligencje) grają między sobą i uczą się (inicjujemy dwóch graczy AI)
   player1 = AI()
   player2 = AI()
-  gridlayout = GridLayout()
+
+  human = Human()
+
 
     #inicjujemy środowisko w którym będziemy grać
 
-  tictactoe = TicTacToeApp()
+  tictactoe = TicTacToe()
   state_winner_triples = get_state_winner(tictactoe)
 
   # Ustawiamy wartości stanów dla graczy
@@ -388,37 +397,24 @@ if __name__ == '__main__': #funkcja main
   # give each player their symbol
   player1.set_symbol(tictactoe.x)
   player2.set_symbol(tictactoe.o)
-
-  number_of_training_games = 500 #liczba gier treningowych w których dwie sztuczne inteligencje grają ze sobą
+  human.set_symbol(tictactoe.o)
+  number_of_training_games = 1000 #liczba gier treningowych w których dwie sztuczne inteligencje grają ze sobą
   # można by to zainicjować z konsoli jako input, ale my już to ustawiliśmy "z palca"
   for n in range(number_of_training_games):
-    play_game(player1, player2, TicTacToeApp())
+    play_game(player1, player2, TicTacToe())
 
     #gdy się już nasz AI wyszkolił, gramy Człowiek kontra Sztuczna inteligencja ;)
 
-  human = Human()
-  human.set_symbol(tictactoe.o)
-
-  tictactoe.run()
-
-
   def newThread():
-      play_game(player1, human, TicTacToeApp(), draw=2)
+    TicTacToeApp().run()
 
   thread = threading.Thread(target=newThread, args=())
   thread.start()
 
 
-
-
-
-
-
-  '''
   while True:
     player1.set_state_information(True)
     play_game(player1, human, TicTacToe(), draw=2)
     answer = input("Czy chcesz zagrać ponownie? [Y/n]: ")
     if answer and answer.lower()[0] == 'n':
       break
-      '''
